@@ -1,1 +1,320 @@
+// Risk of Rain 2 is a popular 3D action roguelike game where you play as a 
+// stranded survivor attempting to escape a chaotic alien planet.
 
+// Allows use of std::optional for SFML 3 event handling
+#include <optional>
+
+// Main SFML graphics library
+#include <SFML/Graphics.hpp>
+
+// Dynamic array container used for particle storage
+#include <vector>
+
+// Mathematical functions (sin, cos)
+#include <cmath>
+
+// Random number generation
+#include <cstdlib>
+
+// Time functions
+#include <ctime>
+
+// String manipulation
+#include <string>
+
+// Custom particle structure
+#include "Particle.h"
+#include <iostream>
+
+// Tracks elapsed time for FPS calculations
+sf::Clock fpsClock;
+
+// Counts rendered frames
+int frames = 0;
+
+// Stores calculated frames per second
+float fps = 0.f;
+
+int main()
+{
+    // Create application window
+    sf::RenderWindow window(
+        sf::VideoMode({ 1280, 720 }),
+        "Risk of Rain 2 Portal"
+    );
+
+    // Limit rendering to 60 FPS
+    window.setFramerateLimit(60);
+
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
+
+
+    // Portal center. Fixed center position of portal
+    sf::Vector2f center(640.f, 360.f);
+
+    // Stores all particles in contiguous memory
+    std::vector<Particle> particles;
+
+    // Number of particles to simulate
+    const int PARTICLE_COUNT = 5000;
+
+    // Reserve memory to avoid repeated reallocations
+    particles.reserve(PARTICLE_COUNT);
+
+    // Create initial particle population
+    for (int i = 0; i < PARTICLE_COUNT; i++)
+    {
+        Particle p;
+
+        // Initial angular position
+        p.angle = static_cast<float>(rand() % 360);
+
+        // Save previous angle for future trail effects
+        p.previousAngle = p.angle;
+
+        // Random distance from portal center
+        p.radius = static_cast<float>(rand() % 120);
+
+        // Random movement speed
+        p.speed = 0.02f +
+            static_cast<float>(rand() % 100) / 10000.f;
+
+        // Cyan particle color
+        p.color = sf::Color(
+            100,
+            255,
+            255,
+            200
+        );
+
+        particles.push_back(p);
+    }
+
+    sf::CircleShape shape;
+
+    sf::CircleShape glow(150.f);
+
+    glow.setOrigin({ 150.f, 150.f });
+
+    glow.setPosition(center);
+
+    glow.setScale({ 0.7f, 1.4f });
+
+    glow.setFillColor(
+        sf::Color(50, 200, 255, 40)
+    );
+
+    sf::CircleShape portalFill(140.f);
+
+    portalFill.setOrigin({ 140.f, 140.f });
+
+    portalFill.setPosition(center);
+
+    // Make it vertically stretched
+    portalFill.setScale({ 0.7f, 1.4f });
+
+    sf::CircleShape portalCore(110.f);
+
+    portalCore.setOrigin({ 110.f, 110.f });
+
+    portalCore.setPosition(center);
+
+    portalCore.setScale({ 0.65f, 1.3f });
+
+    portalCore.setFillColor(
+        sf::Color(5, 10, 20)
+    );
+
+    portalFill.setFillColor(
+        sf::Color(120, 255, 255, 80)
+    );
+
+    sf::CircleShape portalRing(120.f);
+
+    portalRing.setOrigin({ 120.f, 120.f });
+
+    portalRing.setPosition(center);
+
+    portalRing.setScale({ 0.7f, 1.4f });
+
+    portalRing.setFillColor(sf::Color::Transparent);
+
+    portalRing.setOutlineThickness(8.f);
+
+    portalRing.setOutlineColor(
+        sf::Color(100, 255, 255, 180)
+    );
+
+    sf::RectangleShape fadeRect(
+        sf::Vector2f(1280.f, 720.f)
+    );
+
+    fadeRect.setFillColor(
+        sf::Color(10, 10, 20, 25)
+    );
+
+    sf::Font font;
+
+    if (!font.openFromFile("arial.ttf"))
+    {
+        std::cout << "Failed to load font!\n";
+    }
+
+    sf::Text stats(font);
+
+    stats.setCharacterSize(20);
+    stats.setFillColor(sf::Color::White);
+
+    while (window.isOpen())  //GAME LOOP/MAIN LOOP
+    {
+
+        float time =
+            fpsClock.getElapsedTime().asSeconds();
+
+        while (const std::optional event =
+            window.pollEvent())
+        {
+            if (event->is<sf::Event::Closed>())
+                window.close();
+        }
+
+        // UPDATE PARTICLES LOOP
+        for (auto& p : particles)
+        {
+            float turbulence =
+                std::sin(
+                    time +
+                    p.radius
+                ) * 0.002f;
+
+            p.previousAngle = p.angle;
+
+            switch (p.band)
+            {
+            case 0:
+                p.angle += 0.010f;
+                break;
+
+            case 1:
+                p.angle -= 0.015f;
+                break;
+
+            case 2:
+                p.angle += 0.020f;
+                break;
+
+            case 3:
+                p.angle -= 0.025f;
+                break;
+            }
+
+            p.angle += turbulence;
+
+            p.radius +=
+                std::sin(
+                    time * 2.f +
+                    p.angle
+                ) * 0.01f;
+
+            // Reset particle when reaching center
+            if (p.radius <= 5.f)
+            {
+                p.radius = 120.f;
+            }
+
+            if (p.radius > 130.f)
+            {
+                p.radius = 120.f;
+            }
+
+            float wave =
+                std::sin(
+                    p.angle * 4.f +
+                    time * 0.005f
+                ) * 10.f;
+
+            float ellipseX = 0.7f;
+            float ellipseY = 1.4f;
+
+            p.position.x =
+                center.x +
+                std::cos(p.angle) *
+                (p.radius + wave) *
+                ellipseX;
+
+            p.position.y =
+                center.y +
+                std::sin(p.angle) *
+                (p.radius + wave) *
+                ellipseY;
+
+        }
+
+        portalRing.setRadius(120.f);
+
+        portalRing.setOrigin({ 120.f, 120.f });
+
+        window.clear(sf::Color(10, 10, 20));
+
+        window.draw(fadeRect);
+
+        window.draw(glow, sf::BlendAdd);
+
+        window.draw(portalFill, sf::BlendAdd);
+
+        window.draw(portalCore);
+
+        window.draw(portalRing, sf::BlendAdd);
+
+        // DRAW PARTICLES LOOP
+        for (auto& p : particles)
+        {
+            float size =
+                1.f +
+                (120.f - p.radius) / 40.f;
+
+            shape.setRadius(size);
+
+            shape.setOrigin({ size, size });
+
+            shape.setPosition(p.position);
+
+            shape.setFillColor(p.color);
+
+            window.draw(shape, sf::BlendAdd);
+        }
+
+        frames++;
+
+        if (fpsClock.getElapsedTime().asSeconds() >= 1.f)
+        {
+            fps = static_cast<float>(frames);
+
+            frames = 0;
+
+            fpsClock.restart();
+
+            window.setTitle(
+                "Risk of Rain 2 Portal - FPS: " +
+                std::to_string(static_cast<int>(fps))
+            );
+        }
+
+        stats.setString(
+            "FPS: " +
+            std::to_string((int)fps) +
+            "\nParticles: " +
+            std::to_string(PARTICLE_COUNT)
+        );
+
+        stats.setPosition({ 20.f, 20.f });
+
+        window.draw(stats);
+
+        window.display();
+
+} // End game loop
+
+return 0;
+}
